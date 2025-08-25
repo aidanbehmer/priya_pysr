@@ -15,8 +15,41 @@ from sklearn.model_selection import train_test_split
 plt.rcParams["axes.facecolor"] = "white"
 plt.rcParams["grid.color"] = "#666666"
 
+####### Set Input Arguments ########
+# This is where you set the args to your function.
+# Parameter name
+param_name = "Ap"
+# take z = 3.6
+z = 3.6
+# random seed for reproducibility
+random_state = 42
+# PySR settings
+niterations = 20
+maxsize = 20
+maxdepth = 10
+# Plotting
+quantile_low = 0.25  # quantile for parameter value to fix
+quantile_high = 0.75  # quantile for parameter value to fix
+####################################
+
+param_dict = {
+    "dtau0": 0,
+    "tau0": 1,
+    "ns": 2,
+    "Ap": 3,
+    "herei": 4,
+    "heref": 5,
+    "alphaq": 6,
+    "hub": 7,
+    "omegamh2": 8,
+    "hireionz": 9,
+    "bhfeedback": 10,
+}
+param_idx = param_dict[param_name]  # index of the parameter in the params array
+
+# TODO: Probably also be careful about the filepath~
 with h5py.File(
-    "../InferenceMultiFidelity/1pvar/lf_heref_npoints50_datacorrFalse.hdf5", "r"
+    "../InferenceMultiFidelity/1pvar/lf_{}_npoints50_datacorrFalse.hdf5".format(param_name), "r"
 ) as file:
     print(file.keys())
 
@@ -30,7 +63,7 @@ with h5py.File(
 #kfkms.shape, flux_vectors.shape, zout.shape, params.shape
 
 with h5py.File(
-    "../InferenceMultiFidelity/1pvar/hf_heref_npoints50_datacorrFalse.hdf5", "r"
+    "../InferenceMultiFidelity/1pvar/hf_{}_npoints50_datacorrFalse.hdf5".format(param_name), "r"
 ) as file:
     print(file.keys())
 
@@ -40,8 +73,7 @@ with h5py.File(
     zout_hi = file["zout"][:]
     resolution_hi=np.full((1750,1),1)
     params_hi = file["params"][:]
-# take z = 3.6
-z = 3.6
+
 zindex = np.where(zout == z)[0][0]  # index of z = 5
 
 # take z=3.6, and flatten the flux vectors, such that the dim=1 is p1d values per k and parameter
@@ -55,19 +87,6 @@ flux_vectors_z_hi = flux_vectors_z_hi.flatten()[:, np.newaxis]  # add a new axis
 kfkms_z_low = kfkms_low[:, zindex, :]
 kfkms_z_low = kfkms_z_low.flatten()[:, np.newaxis]  # add a new axis to make it 2D
 
-# do the same for the parameter input
-param_idx=5
-#"dtau0": 0,
-#"tau0": 1,
-#"ns": 2,
-#"Ap": 3,
-#"herei": 4,
-#"heref": 5,
-#"alphaq": 6,
-#"hub": 7,
-#"omegamh2": 8,
-#"hireionz": 9,
-#"bhfeedback": 10,
 params_values_low = params_low[:, param_idx]
 # repeat this for the number of kfkms
 params_values_low = np.repeat(params_values_low[:, np.newaxis], kfkms_low.shape[2], axis=1)
@@ -104,29 +123,30 @@ from pysr import PySRRegressor
 
 model = PySRRegressor(
     model_selection="best",
-    niterations=20,  # increase for better expressions
+    niterations=niterations,  # increase for better expressions
     binary_operators=["+", "*", "-", "/", "^"],
     unary_operators=[
         "sin", "cos", "exp", "log", "square", "sqrt","inv(x) = 1/x" #removed sqrt because of degeneracy between it and "^"
     ],
     extra_sympy_mappings={"inv": lambda x: 1 / x},
     loss="loss(x, y) = (x - y)^2",
-    maxsize=20,
-    maxdepth=10,
+    maxsize=maxsize,
+    maxdepth=maxdepth,
     verbosity=1,
-    random_state=42,
+    random_state=random_state,
 )
 
 model.fit(X_act, Y_act)
 
 # print(model)
+# TODO: Find a way to save the best model to a file~
 model.equations_  # to see all candidate expressions
 
 
-
+# TODO: Separate the plotting code into another function
 # Choose a parameter value to fix
-param_fixed_low = np.quantile(params_low[:, param_idx], 0.75)
-param_fixed_hi = np.quantile(params_hi[:, param_idx], 0.75)
+param_fixed_low = np.quantile(params_low[:, param_idx], quantile_low)
+param_fixed_hi = np.quantile(params_hi[:, param_idx], quantile_low)
 # Get unique k values from your data
 k_values_low = np.unique(X_1[:, 1])
 
@@ -189,10 +209,11 @@ plt.plot(k_values_hi[sort_idx_pred_hi], flux_pred_hi[sort_idx_pred_hi], label="P
 
 
 #ANOTHER PARAM
+# TODO: Probably make this into a for loop instead of copy-pasting~
 
 # Choose a parameter value to fix
-param_fixed_low = np.quantile(params_low[:, param_idx], 0.5)
-param_fixed_hi = np.quantile(params_hi[:, param_idx], 0.5)
+param_fixed_low = np.quantile(params_low[:, param_idx], quantile_high)
+param_fixed_hi = np.quantile(params_hi[:, param_idx], quantile_high)
 # Get unique k values from your data
 k_values_low = np.unique(X_1[:, 1])
 
@@ -246,19 +267,18 @@ sort_idx_pred_hi = np.argsort(k_values_hi)
 
 # Plot
 #plt.figure(figsize=(6, 4))
-#plt.plot(k_true[sort_idx_true], flux_true_low[sort_idx_true], label="True Flux (Low)", lw=2, color="C1")
-#plt.plot(k_true_hi[sort_idx_true_hi], flux_true_hi[sort_idx_true_hi], label="True Flux (High)", lw=2, color="C2")
-#plt.plot(k_values_low[sort_idx_pred_low], flux_pred_low[sort_idx_pred_low], label="PySR Prediction (Low)", lw=2, linestyle="--", color="C3")
-#plt.plot(k_values_hi[sort_idx_pred_hi], flux_pred_hi[sort_idx_pred_hi], label="PySR Prediction (High)", lw=2, linestyle="--", color="C4")
-
-
+plt.plot(k_true[sort_idx_true], flux_true_low[sort_idx_true], label="True Flux (Low)", lw=2, color="C1")
+plt.plot(k_true_hi[sort_idx_true_hi], flux_true_hi[sort_idx_true_hi], label="True Flux (High)", lw=2, color="C2")
+plt.plot(k_values_low[sort_idx_pred_low], flux_pred_low[sort_idx_pred_low], label="PySR Prediction (Low)", lw=2, linestyle="--", color="C3")
+plt.plot(k_values_hi[sort_idx_pred_hi], flux_pred_hi[sort_idx_pred_hi], label="PySR Prediction (High)", lw=2, linestyle="--", color="C4")
 
 
 print(model.get_best())
 #print(f"Parameter fixed: {param_fixed_low:.2f} (low fidelity), {param_fixed_hi:.2f} (high fidelity)")
+# TODO: Save the figure to a file too~ you can use plt.savefig("filename.png")
 plt.xlabel("k [s/km]")
 plt.ylabel("P1D(k)")
-plt.title(f"z = 3.6, param ≈ {param_fixed_low:.2f}")
+plt.title(f"z = {z:.2f}, param ≈ {param_fixed_low:.2f}")
 plt.legend()
 plt.grid(True)
 plt.tight_layout()
