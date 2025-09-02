@@ -15,3 +15,4 @@ def create_model(niterations=20, maxsize=20, maxdepth=10, random_state=42):
         verbosity=1,
         random_state=random_state,
     )
+#figure out how to make sure model uses resolution as a parameter

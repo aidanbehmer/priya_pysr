@@ -58,7 +58,7 @@ def plot_predictions(params_low,params_hi,quantiles,X_hi,X_low,y_hi,y_low,model,
             plt.figure(figsize=(6, 4))
         plt.plot(k_true[sort_idx_true], flux_true_low[sort_idx_true], label="True Flux (Low)", lw=2, color="C"+str(4*i+1))
         plt.plot(k_true_hi[sort_idx_true_hi], flux_true_hi[sort_idx_true_hi], label="True Flux (High)", lw=2, color="C"+str(4*i+2))
-        plt.plot(k_values_low[sort_idx_pred_low], flux_pred_low[sort_idx_pred_low], label="PySR Prediction (Low)", lw=2, linestyle="--", color="C"+str(4*i+3))
+        plt.plot(k_values_low[sort_idx_pred_low], flux_pred_low[sort_idx_pred_low], label="PySR Prediction (Low)", lw=3, linestyle="--", color="C"+str(4*i+3))
         plt.plot(k_values_hi[sort_idx_pred_hi], flux_pred_hi[sort_idx_pred_hi], label="PySR Prediction (High)", lw=2, linestyle="--", color="C"+str(4*i+4))
     
     # TODO: Save the figure to a file too~ you can use plt.savefig("filename.png")
@@ -69,7 +69,9 @@ def plot_predictions(params_low,params_hi,quantiles,X_hi,X_low,y_hi,y_low,model,
     plt.legend()
     plt.grid(True)
     plt.tight_layout()
+    plt.savefig("pysr_graphs.png")
     plt.show()
+
 
 
 #need: params_lo, params_hi, quantiles (array), param_idx, X_hi (should be including the resolutiuon val), X_low, y_lo,y_hi, model, z, 

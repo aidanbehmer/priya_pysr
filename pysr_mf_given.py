@@ -21,13 +21,13 @@ plt.rcParams["grid.color"] = "#666666"
 ####### Set Input Arguments ########
 # This is where you set the args to your function.
 # Parameter name
-param_name = "Ap"
+param_name = "herei"
 # take z = 3.6
 z = 3.6
 
 # Plotting
-quantile_low = 0.25  # quantile for parameter value to fix
-quantile_high = 0.75  # quantile for parameter value to fix
+quantile_low = 0.16  # quantile for parameter value to fix
+quantile_high = 0.84  # quantile for parameter value to fix
 ####################################
 
 param_dict = {
@@ -55,7 +55,7 @@ with h5py.File(
     kfkms_low = file["kfkms"][:]
     # kfmpc = file["kfmpc"][:]
     zout = file["zout"][:]
-    resolution_low=np.full((1750,1),0)
+    resolution_low=np.full((1750,1),1536)
 
     params_low = file["params"][:]
 #kfkms.shape, flux_vectors.shape, zout.shape, params.shape
@@ -69,7 +69,7 @@ with h5py.File(
     kfkms_hi = file["kfkms"][:]
     # kfmpc = file["kfmpc"][:]
     zout_hi = file["zout"][:]
-    resolution_hi=np.full((1750,1),1)
+    resolution_hi=np.full((1750,1),3072)
     params_hi = file["params"][:]
 
 zindex = np.where(zout == z)[0][0]  # index of z = 5
@@ -94,11 +94,12 @@ params_values_low = params_values_low.flatten()[:, np.newaxis]  # add a new axis
 X_param = params_values_low
 X_k = kfkms_z_low
 y = flux_vectors_z_low
+
 assert(y.shape == (1750, 1))
 # Concatenate inputs to form design matrix
 X = np.hstack([X_param, X_k])  # shape: (1750, 2)
 
-X_1 = np.hstack([X_param, X_k,resolution_low])  # shape: (1750, 2)
+X_1 = np.hstack([X_param, X_k,resolution_low])  # shape: (1750, 3)
 assert(X.shape== (1750, 2))
 
 params_values_hi = params_low[:, param_idx]
@@ -110,13 +111,34 @@ params_values_hi = params_values_hi.flatten()[:, np.newaxis]  # add a new axis t
 X_param_hi = params_values_hi
 
 y_hi = flux_vectors_z_hi
+
+#normalization of y
+y_low_mean=np.mean(y)
+y_low_std=np.std(y)
+y_low_normalized=(y-y_low_mean)/y_low_std
+
+y_hi_mean=np.mean(y_hi)
+y_hi_std=np.std(y_hi)
+y_hi_normalized=(y_hi-y_hi_mean)/y_hi_std
+
+#stacking
 X2=np.hstack([X_param_hi, X_k])
-X_2=np.hstack([X_param_hi, X_k,resolution_hi])  # shape: (1750, 2)
-X_act=np.vstack([X_1, X_2])  # shape: (3500, 2)
-Y_act=np.vstack([y, y_hi])  # shape: (3500, 1)
+X_2=np.hstack([X_param_hi, X_k,resolution_hi])  # shape: (1750, 3)
+
+#normalization of x
+X_1_normalized=X_1/(np.max(X_1,axis=0)-np.min(X_1,axis=0))
+X_2_normalized=X_2/(np.max(X_2,axis=0)-np.min(X_2,axis=0))
+#THROWS ERROR, I BELIEVE BECAUSE OF DIVISION BY 0
+
+#end stacking
+X_act=np.vstack([X_1_normalized, X_2_normalized])  # shape: (3500, 3)
+Y_act=np.vstack([y_low_normalized, y_hi_normalized])  # shape: (3500, 1)
+
 assert(X_act.shape== (3500, 3))
 assert(Y_act.shape== (3500, 1))
 
+
+#now going into the different files
 from pysr import PySRRegressor
 
 model = create_model(niterations=20, maxsize=20, maxdepth=10, random_state=42)
@@ -128,7 +150,7 @@ model.equations_  # to see all candidate expressions
 
 
 #plot_predictions(params_low,params_hi,quantiles,X_hi,X_low,y_hi,y_low,model,z,param_idx,X,X2)
-plot_predictions(params_low,params_hi,[quantile_low, quantile_high],X_2,X_1,y_hi,y,model,z,param_idx,X,X2)
+plot_predictions(params_low,params_hi,[quantile_low, quantile_high],X_2,X_1,y_hi_normalized,y_low_normalized,model,z,param_idx,X,X2)
 
 print(model.get_best())
 #print(f"Parameter fixed: {param_fixed_low:.2f} (low fidelity), {param_fixed_hi:.2f} (high fidelity)")
