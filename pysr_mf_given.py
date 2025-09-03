@@ -21,9 +21,9 @@ plt.rcParams["grid.color"] = "#666666"
 ####### Set Input Arguments ########
 # This is where you set the args to your function.
 # Parameter name
-param_name = "herei"
+param_name = "tau0"
 # take z = 3.6
-z = 3.6
+z = 2.8
 
 # Plotting
 quantile_low = 0.16  # quantile for parameter value to fix
@@ -55,7 +55,7 @@ with h5py.File(
     kfkms_low = file["kfkms"][:]
     # kfmpc = file["kfmpc"][:]
     zout = file["zout"][:]
-    resolution_low=np.full((1750,1),1536)
+    resolution_low=np.full((1750,1),0.4)
 
     params_low = file["params"][:]
 #kfkms.shape, flux_vectors.shape, zout.shape, params.shape
@@ -69,16 +69,25 @@ with h5py.File(
     kfkms_hi = file["kfkms"][:]
     # kfmpc = file["kfmpc"][:]
     zout_hi = file["zout"][:]
-    resolution_hi=np.full((1750,1),3072)
+    resolution_hi=np.full((1750,1),0.8)
     params_hi = file["params"][:]
 
 zindex = np.where(zout == z)[0][0]  # index of z = 5
 
 # take z=3.6, and flatten the flux vectors, such that the dim=1 is p1d values per k and parameter
 flux_vectors_z_low = flux_vectors_low[:, zindex, :]
+# TODO: Check this later: I want the normalized to mean as function of k
+mean_flux_low = np.mean(flux_vectors_z_low, axis=0)
+std_flux_low = np.std(flux_vectors_z_low, axis=0)
+flux_vectors_z_low = (flux_vectors_z_low - mean_flux_low) / std_flux_low  # normalize to mean
+########################################################################
 flux_vectors_z_low = flux_vectors_z_low.flatten()[:, np.newaxis]  # add a new axis to make it 2D
 
 flux_vectors_z_hi = flux_vectors_hi[:, zindex, :]
+# TODO: Check this later: I want the normalized to mean as function of k
+# mean_flux_hi = np.mean(flux_vectors_z_hi, axis=0)
+flux_vectors_z_hi = (flux_vectors_z_hi - mean_flux_low) / std_flux_low  # normalize to mean of low fidelity
+########################################################################
 flux_vectors_z_hi = flux_vectors_z_hi.flatten()[:, np.newaxis]  # add a new axis to make it 2D
 
 # do the same for kfkms
@@ -97,9 +106,14 @@ y = flux_vectors_z_low
 
 assert(y.shape == (1750, 1))
 # Concatenate inputs to form design matrix
-X = np.hstack([X_param, X_k])  # shape: (1750, 2)
 
-X_1 = np.hstack([X_param, X_k,resolution_low])  # shape: (1750, 3)
+
+
+X_param_normalized=X_param/(np.max(X_param,axis=0)-np.min(X_param,axis=0))
+X_k_normalized=X_k/(np.max(X_k,axis=0)-np.min(X_k,axis=0))
+
+X = np.hstack([X_param_normalized, X_k_normalized])  # shape: (1750, 2)
+X_1 = np.hstack([X_param_normalized, X_k_normalized,resolution_low])  # shape: (1750, 3)
 assert(X.shape== (1750, 2))
 
 params_values_hi = params_low[:, param_idx]
@@ -112,27 +126,30 @@ X_param_hi = params_values_hi
 
 y_hi = flux_vectors_z_hi
 
-#normalization of y
-y_low_mean=np.mean(y)
-y_low_std=np.std(y)
-y_low_normalized=(y-y_low_mean)/y_low_std
+# #normalization of y
+# y_low_mean=np.mean(y, axis=0)
+# y_low_std=np.std(y, axis=0)
+# y_low_normalized=(y-y_low_mean)/y_low_std
 
-y_hi_mean=np.mean(y_hi)
-y_hi_std=np.std(y_hi)
-y_hi_normalized=(y_hi-y_hi_mean)/y_hi_std
+# y_hi_mean=np.mean(y_hi, axis=0)
+# y_hi_std=np.std(y_hi, axis=0)
+# y_hi_normalized=(y_hi-y_low_mean)/y_low_std
 
 #stacking
-X2=np.hstack([X_param_hi, X_k])
-X_2=np.hstack([X_param_hi, X_k,resolution_hi])  # shape: (1750, 3)
+
+X_param_hi_normalized=X_param_hi/(np.max(X_param_hi,axis=0)-np.min(X_param_hi,axis=0))
+
+X2=np.hstack([X_param_hi_normalized, X_k_normalized])
+X_2=np.hstack([X_param_hi_normalized, X_k_normalized,resolution_hi])  # shape: (1750, 3)
 
 #normalization of x
-X_1_normalized=X_1/(np.max(X_1,axis=0)-np.min(X_1,axis=0))
-X_2_normalized=X_2/(np.max(X_2,axis=0)-np.min(X_2,axis=0))
+#X_1_normalized=X_1/(np.max(X_1,axis=0)-np.min(X_1,axis=0))
+#X_2_normalized=X_2/(np.max(X_2,axis=0)-np.min(X_2,axis=0))
 #THROWS ERROR, I BELIEVE BECAUSE OF DIVISION BY 0
 
 #end stacking
-X_act=np.vstack([X_1_normalized, X_2_normalized])  # shape: (3500, 3)
-Y_act=np.vstack([y_low_normalized, y_hi_normalized])  # shape: (3500, 1)
+X_act=np.vstack([X_1, X_2])  # shape: (3500, 3)
+Y_act=np.vstack([y, y_hi])  # shape: (3500, 1)
 
 assert(X_act.shape== (3500, 3))
 assert(Y_act.shape== (3500, 1))
@@ -148,9 +165,13 @@ model.fit(X_act, Y_act)
 # TODO: Find a way to save the best model to a file~
 model.equations_  # to see all candidate expressions
 
+# TODO: patch the param_low and high to normalized versions
+params_low_normalized=params_low/(np.max(X_param,axis=0)-np.min(X_param,axis=0))
+params_hi_normalized=params_hi/(np.max(X_param_hi,axis=0)-np.min(X_param_hi,axis=0))
+
 
 #plot_predictions(params_low,params_hi,quantiles,X_hi,X_low,y_hi,y_low,model,z,param_idx,X,X2)
-plot_predictions(params_low,params_hi,[quantile_low, quantile_high],X_2,X_1,y_hi_normalized,y_low_normalized,model,z,param_idx,X,X2)
+plot_predictions(params_low_normalized,params_hi_normalized,[quantile_low, quantile_high],X_2,X_1,y_hi,y,model,z,param_idx,X,X2)
 
 print(model.get_best())
 #print(f"Parameter fixed: {param_fixed_low:.2f} (low fidelity), {param_fixed_hi:.2f} (high fidelity)")

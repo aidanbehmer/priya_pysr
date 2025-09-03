@@ -1,7 +1,7 @@
 import numpy as np
 import matplotlib.pyplot as plt
 
-def plot_predictions(params_low,params_hi,quantiles,X_hi,X_low,y_hi,y_low,model,z,param_idx,X,X2):
+def plot_predictions(params_low,params_hi,quantiles,X_hi,X_low,y_hi,y_low,model,z,param_idx,X,X2, label_low=0.4,label_hi=0.8):
     for i in range(len(quantiles)):
         param_fixed_low = np.quantile(params_low[:, param_idx], quantiles[i])
         param_fixed_hi = np.quantile(params_hi[:, param_idx], quantiles[i])
@@ -15,12 +15,12 @@ def plot_predictions(params_low,params_hi,quantiles,X_hi,X_low,y_hi,y_low,model,
         X_pred_low = np.column_stack([
             np.full_like(k_values_low, fill_value=param_fixed_low),
             k_values_low,
-            np.zeros_like(k_values_low) #NEW
+            np.ones_like(k_values_low) * label_low #NEW
         ])
         X_pred_hi = np.column_stack([
             np.full_like(k_values_hi, fill_value=param_fixed_hi),
             k_values_hi,
-            np.ones_like(k_values_hi) #NEW
+            np.ones_like(k_values_hi) * label_hi  #NEW
         ])
 
 
