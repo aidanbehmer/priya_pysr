@@ -21,9 +21,9 @@ plt.rcParams["grid.color"] = "#666666"
 ####### Set Input Arguments ########
 # This is where you set the args to your function.
 # Parameter name
-param_name = "tau0"
+param_name = "dtau0"  
 # take z = 3.6
-z = 2.8
+z = 3.6
 
 # Plotting
 quantile_low = 0.16  # quantile for parameter value to fix
@@ -171,7 +171,7 @@ params_hi_normalized=params_hi/(np.max(X_param_hi,axis=0)-np.min(X_param_hi,axis
 
 
 #plot_predictions(params_low,params_hi,quantiles,X_hi,X_low,y_hi,y_low,model,z,param_idx,X,X2)
-plot_predictions(params_low_normalized,params_hi_normalized,[quantile_low, quantile_high],X_2,X_1,y_hi,y,model,z,param_idx,X,X2)
+plot_predictions(params_low_normalized,params_hi_normalized,[0.16],X_2,X_1,y_hi,y,model,z,param_idx,X,X2,param_name)
 
 print(model.get_best())
 #print(f"Parameter fixed: {param_fixed_low:.2f} (low fidelity), {param_fixed_hi:.2f} (high fidelity)")

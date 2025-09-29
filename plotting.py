@@ -1,7 +1,8 @@
 import numpy as np
 import matplotlib.pyplot as plt
+import datetime
 
-def plot_predictions(params_low,params_hi,quantiles,X_hi,X_low,y_hi,y_low,model,z,param_idx,X,X2, label_low=0.4,label_hi=0.8):
+def plot_predictions(params_low,params_hi,quantiles,X_hi,X_low,y_hi,y_low,model,z,param_idx,X,X2, param,label_low=0.4,label_hi=0.8):
     for i in range(len(quantiles)):
         param_fixed_low = np.quantile(params_low[:, param_idx], quantiles[i])
         param_fixed_hi = np.quantile(params_hi[:, param_idx], quantiles[i])
@@ -53,9 +54,21 @@ def plot_predictions(params_low,params_hi,quantiles,X_hi,X_low,y_hi,y_low,model,
         sort_idx_pred_low = np.argsort(k_values_low)
         sort_idx_pred_hi = np.argsort(k_values_hi)
 
+        # Calculate ratio and its inverse for low resolution
+        ratio_low = flux_pred_low[sort_idx_pred_low] / flux_true_low[sort_idx_true]
+        inverse_ratio_low = 1.0 - ratio_low
+
+        # Calculate ratio and its inverse for high resolution
+        ratio_hi = flux_pred_hi[sort_idx_pred_hi] / flux_true_hi[sort_idx_true_hi]
+        inverse_ratio_hi = 1.0 - ratio_hi
+
         # Plot
         if i==0:
             plt.figure(figsize=(6, 4))
+        
+        plt.plot(k_values_low[sort_idx_pred_low], inverse_ratio_low, label="1/(Pred/True) Low", lw=2, color="C"+str(4*i+5))
+        plt.plot(k_values_hi[sort_idx_pred_hi], inverse_ratio_hi, label="1/(Pred/True) High", lw=2, color="C"+str(4*i+6))
+
         plt.plot(k_true[sort_idx_true], flux_true_low[sort_idx_true], label="True Flux (Low)", lw=2, color="C"+str(4*i+1))
         plt.plot(k_true_hi[sort_idx_true_hi], flux_true_hi[sort_idx_true_hi], label="True Flux (High)", lw=2, color="C"+str(4*i+2))
         plt.plot(k_values_low[sort_idx_pred_low], flux_pred_low[sort_idx_pred_low], label="PySR Prediction (Low)", lw=3, linestyle="--", color="C"+str(4*i+3))
@@ -69,7 +82,10 @@ def plot_predictions(params_low,params_hi,quantiles,X_hi,X_low,y_hi,y_low,model,
     plt.legend()
     plt.grid(True)
     plt.tight_layout()
-    plt.savefig("pysr_graphs.png")
+    #TODO: save plot as a pdf, not just a png
+    timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
+    plt.savefig(f"pysr_graphs_{z}_{param}.pdf")
+    plt.show()
     plt.show()
 
 
