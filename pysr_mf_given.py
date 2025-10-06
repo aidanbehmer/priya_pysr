@@ -21,7 +21,7 @@ plt.rcParams["grid.color"] = "#666666"
 ####### Set Input Arguments ########
 # This is where you set the args to your function.
 # Parameter name
-param_name = "dtau0"  
+param_name = "ns"  
 # take z = 3.6
 z = 3.6
 
@@ -80,6 +80,8 @@ flux_vectors_z_low = flux_vectors_low[:, zindex, :]
 mean_flux_low = np.mean(flux_vectors_z_low, axis=0)
 std_flux_low = np.std(flux_vectors_z_low, axis=0)
 flux_vectors_z_low = (flux_vectors_z_low - mean_flux_low) / std_flux_low  # normalize to mean
+#use the mean and std variables later when reverting back to original scale
+#make this a function instead of in here
 ########################################################################
 flux_vectors_z_low = flux_vectors_z_low.flatten()[:, np.newaxis]  # add a new axis to make it 2D
 
@@ -108,9 +110,15 @@ assert(y.shape == (1750, 1))
 # Concatenate inputs to form design matrix
 
 
+X_max=(np.max(X_param,axis=0))
+X_min=(np.min(X_param,axis=0))
+X_param_normalized=(X_param-X_min)/(X_max-X_min)
+#save the max and min for use in reverting back to original scale
+#make this a function as well
 
-X_param_normalized=X_param/(np.max(X_param,axis=0)-np.min(X_param,axis=0))
-X_k_normalized=X_k/(np.max(X_k,axis=0)-np.min(X_k,axis=0))
+X_k_max=np.max(X_k,axis=0)
+X_k_min=np.min(X_k,axis=0)
+X_k_normalized=(X_k-X_k_min)/(X_k_max-X_k_min)
 
 X = np.hstack([X_param_normalized, X_k_normalized])  # shape: (1750, 2)
 X_1 = np.hstack([X_param_normalized, X_k_normalized,resolution_low])  # shape: (1750, 3)
@@ -136,10 +144,11 @@ y_hi = flux_vectors_z_hi
 # y_hi_normalized=(y_hi-y_low_mean)/y_low_std
 
 #stacking
+X_hi_max=np.max(X_param_hi,axis=0)
+X_hi_min=np.min(X_param_hi,axis=0)
+X_param_hi_normalized=(X_param_hi-X_hi_min)/(X_hi_max-X_hi_min)
 
-X_param_hi_normalized=X_param_hi/(np.max(X_param_hi,axis=0)-np.min(X_param_hi,axis=0))
-
-X2=np.hstack([X_param_hi_normalized, X_k_normalized])
+X2=np.hstack([X_param_hi_normalized, X_k_normalized]) #non resolution
 X_2=np.hstack([X_param_hi_normalized, X_k_normalized,resolution_hi])  # shape: (1750, 3)
 
 #normalization of x
@@ -166,12 +175,14 @@ model.fit(X_act, Y_act)
 model.equations_  # to see all candidate expressions
 
 # TODO: patch the param_low and high to normalized versions
-params_low_normalized=params_low/(np.max(X_param,axis=0)-np.min(X_param,axis=0))
-params_hi_normalized=params_hi/(np.max(X_param_hi,axis=0)-np.min(X_param_hi,axis=0))
+params_low_normalized=(params_low-np.min(X_param,axis=0))/(np.max(X_param,axis=0)-np.min(X_param,axis=0))
+params_hi_normalized=(params_hi-np.min(X_param_hi,axis=0))/(np.max(X_param_hi,axis=0)-np.min(X_param_hi,axis=0))
 
+#mean_flux_low,std_flux_low
+#X_max,X_min, X_hi_max,X_hi_min
 
 #plot_predictions(params_low,params_hi,quantiles,X_hi,X_low,y_hi,y_low,model,z,param_idx,X,X2)
-plot_predictions(params_low_normalized,params_hi_normalized,[0.16],X_2,X_1,y_hi,y,model,z,param_idx,X,X2,param_name)
+plot_predictions(params_low_normalized,params_hi_normalized,[0.16],X_2,X_1,y_hi,y,model,z,param_idx,X,X2,param_name,mean_flux_low,std_flux_low,X_max,X_min, X_hi_max,X_hi_min,X_k_max,X_k_min)
 
 print(model.get_best())
 #print(f"Parameter fixed: {param_fixed_low:.2f} (low fidelity), {param_fixed_hi:.2f} (high fidelity)")
