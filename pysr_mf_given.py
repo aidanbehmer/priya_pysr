@@ -21,7 +21,7 @@ plt.rcParams["grid.color"] = "#666666"
 ####### Set Input Arguments ########
 # This is where you set the args to your function.
 # Parameter name
-param_name = "hub"  
+param_name = "ns"  
 # take z = 3.6
 z = 3.6
 
@@ -193,7 +193,7 @@ print(model.get_best())
 ###############################################
 
 # Choose a new parameter dataset (different from param_name)
-param_test = "hub"
+param_test = "dtau0"
 z = 3.6
 
 with h5py.File(
@@ -231,14 +231,29 @@ y_true = flux_vectors_z_test.flatten()[:, np.newaxis]
 
 # --- Predict using your trained model ---
 y_pred = model.predict(X_test)
+
+
+n_sims, n_k = flux_vectors_low_test.shape[0], flux_vectors_low_test.shape[2]
+
+mean_flux_expand = np.repeat(mean_flux_low[np.newaxis, :], n_sims, axis=0)
+std_flux_expand = np.repeat(std_flux_low[np.newaxis, :], n_sims, axis=0)
+
+# Flatten to align with y_pred
+mean_flux_flat = mean_flux_expand.flatten()
+std_flux_flat = std_flux_expand.flatten()
+
+# Denormalize
+y_pred_denorm = y_pred.flatten() * std_flux_flat + mean_flux_flat
+
+
 print("Shapes:", kfkms_z_test.shape, flux_vectors_z_test.shape)
 print("y_true range:", np.min(y_true), np.max(y_true))
 print("y_pred range:", np.min(y_pred), np.max(y_pred))
 print("NaNs?", np.isnan(y_pred).any())
 # --- Compare visually ---
 plt.figure()
-plt.loglog(kfkms_z_test[0], y_true[:len(kfkms_z_test[0])], label="True (simulation)")
-plt.loglog(kfkms_z_test[0], y_pred[:len(kfkms_z_test[0])], label=f"PySR trained on {param_name}")
+plt.plot(kfkms_z_test[0], y_true[:len(kfkms_z_test[0])], label="True")
+plt.plot(kfkms_z_test[0], y_pred[:len(kfkms_z_test[0])], label="Pred")
 plt.xlabel("k [s/km]")
 plt.ylabel("P₁D(k)")
 plt.title(f"Generalization test: trained on {param_name}, tested on {param_test}")
