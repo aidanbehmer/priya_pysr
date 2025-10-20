@@ -21,7 +21,7 @@ plt.rcParams["grid.color"] = "#666666"
 ####### Set Input Arguments ########
 # This is where you set the args to your function.
 # Parameter name
-param_name = "ns"  
+param_name = "hub"  
 # take z = 3.6
 z = 3.6
 
@@ -172,7 +172,7 @@ model.fit(X_act, Y_act)
 
 # print(model)
 # TODO: Find a way to save the best model to a file~
-model.equations_  # to see all candidate expressions
+model.equations_  # to see all candidate expression
 
 # TODO: patch the param_low and high to normalized versions
 params_low_normalized=(params_low-np.min(X_param,axis=0))/(np.max(X_param,axis=0)-np.min(X_param,axis=0))
@@ -186,3 +186,61 @@ plot_predictions(params_low_normalized,params_hi_normalized,[0.16],X_2,X_1,y_hi,
 
 print(model.get_best())
 #print(f"Parameter fixed: {param_fixed_low:.2f} (low fidelity), {param_fixed_hi:.2f} (high fidelity)")
+
+
+###############################################
+# --- Test generalization on another parameter ---
+###############################################
+
+# Choose a new parameter dataset (different from param_name)
+param_test = "hub"
+z = 3.6
+
+with h5py.File(
+    f"../InferenceMultiFidelity/1pvar/lf_{param_test}_npoints50_datacorrFalse.hdf5", "r"
+) as file:
+    flux_vectors_low_test = file["flux_vectors"][:]
+    kfkms_low_test = file["kfkms"][:]
+    zout = file["zout"][:]
+    params_low_test = file["params"][:]
+
+zindex = np.where(zout == z)[0][0]
+flux_vectors_z_test = flux_vectors_low_test[:, zindex, :]
+kfkms_z_test = kfkms_low_test[:, zindex, :]
+
+# --- Normalize with training stats ---
+flux_vectors_z_test = (flux_vectors_z_test - mean_flux_low) / std_flux_low
+kfkms_z_test = (kfkms_z_test - X_k_min) / (X_k_max - X_k_min)
+
+param_dict = {"dtau0":0, "tau0":1, "ns":2, "Ap":3, "herei":4, "heref":5,
+              "alphaq":6, "hub":7, "omegamh2":8, "hireionz":9, "bhfeedback":10}
+param_idx_test = param_dict[param_test]
+
+X_param_test = params_low_test[:, param_idx_test]
+X_param_test = (X_param_test - X_param_test.min()) / (X_param_test.max() - X_param_test.min())
+
+# Flatten to match training shape
+X_param_test = np.repeat(X_param_test[:, np.newaxis], kfkms_z_test.shape[1], axis=1).flatten()[:, np.newaxis]
+X_k_test = kfkms_z_test.flatten()[:, np.newaxis]
+
+# Resolution: same shape, just constant
+resolution_test = np.full_like(X_k_test, 0.4)
+
+X_test = np.hstack([X_param_test, X_k_test, resolution_test])
+y_true = flux_vectors_z_test.flatten()[:, np.newaxis]
+
+# --- Predict using your trained model ---
+y_pred = model.predict(X_test)
+print("Shapes:", kfkms_z_test.shape, flux_vectors_z_test.shape)
+print("y_true range:", np.min(y_true), np.max(y_true))
+print("y_pred range:", np.min(y_pred), np.max(y_pred))
+print("NaNs?", np.isnan(y_pred).any())
+# --- Compare visually ---
+plt.figure()
+plt.loglog(kfkms_z_test[0], y_true[:len(kfkms_z_test[0])], label="True (simulation)")
+plt.loglog(kfkms_z_test[0], y_pred[:len(kfkms_z_test[0])], label=f"PySR trained on {param_name}")
+plt.xlabel("k [s/km]")
+plt.ylabel("P₁D(k)")
+plt.title(f"Generalization test: trained on {param_name}, tested on {param_test}")
+plt.legend()
+plt.show()
