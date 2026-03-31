@@ -21,9 +21,9 @@ plt.rcParams["grid.color"] = "#666666"
 ####### Set Input Arguments ########
 # This is where you set the args to your function.
 # Parameter name
-param_name = "ns"  
+param_name = "bhfeedback"  
 # take z = 3.6
-z = 3.6
+z = 2.8
 
 # Plotting
 quantile_low = 0.16  # quantile for parameter value to fix
@@ -76,10 +76,19 @@ zindex = np.where(zout == z)[0][0]  # index of z = 5
 
 # take z=3.6, and flatten the flux vectors, such that the dim=1 is p1d values per k and parameter
 flux_vectors_z_low = flux_vectors_low[:, zindex, :]
-# TODO: Check this later: I want the normalized to mean as function of k
+print(type(flux_vectors_z_low))
+
+
+mean_flux_low=np.loadtxt(f"/Users/aidanbehmer/Sum25Research/InferenceMultiFidelity/3pvar/mean_flux_low_ns-hub-hireionz.txt")
+std_flux_low=np.loadtxt(f"/Users/aidanbehmer/Sum25Research/InferenceMultiFidelity/3pvar/std_flux_low_ns-hub-hireionz.txt")
+
+#for variables that don't have a sobol file yet:
 mean_flux_low = np.mean(flux_vectors_z_low, axis=0)
 std_flux_low = np.std(flux_vectors_z_low, axis=0)
+print(flux_vectors_z_low.shape)
 flux_vectors_z_low = (flux_vectors_z_low - mean_flux_low) / std_flux_low  # normalize to mean
+
+
 #use the mean and std variables later when reverting back to original scale
 #make this a function instead of in here
 ########################################################################
@@ -134,15 +143,6 @@ X_param_hi = params_values_hi
 
 y_hi = flux_vectors_z_hi
 
-# #normalization of y
-# y_low_mean=np.mean(y, axis=0)
-# y_low_std=np.std(y, axis=0)
-# y_low_normalized=(y-y_low_mean)/y_low_std
-
-# y_hi_mean=np.mean(y_hi, axis=0)
-# y_hi_std=np.std(y_hi, axis=0)
-# y_hi_normalized=(y_hi-y_low_mean)/y_low_std
-
 #stacking
 X_hi_max=np.max(X_param_hi,axis=0)
 X_hi_min=np.min(X_param_hi,axis=0)
@@ -151,10 +151,7 @@ X_param_hi_normalized=(X_param_hi-X_hi_min)/(X_hi_max-X_hi_min)
 X2=np.hstack([X_param_hi_normalized, X_k_normalized]) #non resolution
 X_2=np.hstack([X_param_hi_normalized, X_k_normalized,resolution_hi])  # shape: (1750, 3)
 
-#normalization of x
-#X_1_normalized=X_1/(np.max(X_1,axis=0)-np.min(X_1,axis=0))
-#X_2_normalized=X_2/(np.max(X_2,axis=0)-np.min(X_2,axis=0))
-#THROWS ERROR, I BELIEVE BECAUSE OF DIVISION BY 0
+
 
 #end stacking
 X_act=np.vstack([X_1, X_2])  # shape: (3500, 3)
@@ -166,7 +163,7 @@ assert(Y_act.shape== (3500, 1))
 
 #now going into the different files
 from pysr import PySRRegressor
-
+np.random.seed(42)
 model = create_model(niterations=20, maxsize=20, maxdepth=10, random_state=42)
 model.fit(X_act, Y_act)
 
@@ -182,80 +179,19 @@ params_hi_normalized=(params_hi-np.min(X_param_hi,axis=0))/(np.max(X_param_hi,ax
 #X_max,X_min, X_hi_max,X_hi_min
 
 #plot_predictions(params_low,params_hi,quantiles,X_hi,X_low,y_hi,y_low,model,z,param_idx,X,X2)
-plot_predictions(params_low_normalized,params_hi_normalized,[0.16],X_2,X_1,y_hi,y,model,z,param_idx,X,X2,param_name,mean_flux_low,std_flux_low,X_max,X_min, X_hi_max,X_hi_min,X_k_max,X_k_min)
+plot_predictions(params_low_normalized,params_hi_normalized,[0.5],X_2,X_1,y_hi,y,model,z,param_idx,X,X2,param_name,mean_flux_low,std_flux_low,X_max,X_min, X_hi_max,X_hi_min,X_k_max,X_k_min)
 
 print(model.get_best())
 #print(f"Parameter fixed: {param_fixed_low:.2f} (low fidelity), {param_fixed_hi:.2f} (high fidelity)")
+"""
+k_values_low = np.unique(X_1[:, 1])
+k_values_hi = np.unique(X_2[:, 1])
+sort_idx_pred_low = np.argsort(k_values_low)
+sort_idx_pred_hi = np.argsort(k_values_hi)
+k_values_low=k_values_low * (X_k_max - X_k_min) + X_k_min
+k_values_hi=k_values_hi * (X_k_max - X_k_min) + X_k_min
 
-
-###############################################
-# --- Test generalization on another parameter ---
-###############################################
-
-# Choose a new parameter dataset (different from param_name)
-param_test = "dtau0"
-z = 3.6
-
-with h5py.File(
-    f"../InferenceMultiFidelity/1pvar/lf_{param_test}_npoints50_datacorrFalse.hdf5", "r"
-) as file:
-    flux_vectors_low_test = file["flux_vectors"][:]
-    kfkms_low_test = file["kfkms"][:]
-    zout = file["zout"][:]
-    params_low_test = file["params"][:]
-
-zindex = np.where(zout == z)[0][0]
-flux_vectors_z_test = flux_vectors_low_test[:, zindex, :]
-kfkms_z_test = kfkms_low_test[:, zindex, :]
-
-# --- Normalize with training stats ---
-flux_vectors_z_test = (flux_vectors_z_test - mean_flux_low) / std_flux_low
-kfkms_z_test = (kfkms_z_test - X_k_min) / (X_k_max - X_k_min)
-
-param_dict = {"dtau0":0, "tau0":1, "ns":2, "Ap":3, "herei":4, "heref":5,
-              "alphaq":6, "hub":7, "omegamh2":8, "hireionz":9, "bhfeedback":10}
-param_idx_test = param_dict[param_test]
-
-X_param_test = params_low_test[:, param_idx_test]
-X_param_test = (X_param_test - X_param_test.min()) / (X_param_test.max() - X_param_test.min())
-
-# Flatten to match training shape
-X_param_test = np.repeat(X_param_test[:, np.newaxis], kfkms_z_test.shape[1], axis=1).flatten()[:, np.newaxis]
-X_k_test = kfkms_z_test.flatten()[:, np.newaxis]
-
-# Resolution: same shape, just constant
-resolution_test = np.full_like(X_k_test, 0.4)
-
-X_test = np.hstack([X_param_test, X_k_test, resolution_test])
-y_true = flux_vectors_z_test.flatten()[:, np.newaxis]
-
-# --- Predict using your trained model ---
-y_pred = model.predict(X_test)
-
-
-n_sims, n_k = flux_vectors_low_test.shape[0], flux_vectors_low_test.shape[2]
-
-mean_flux_expand = np.repeat(mean_flux_low[np.newaxis, :], n_sims, axis=0)
-std_flux_expand = np.repeat(std_flux_low[np.newaxis, :], n_sims, axis=0)
-
-# Flatten to align with y_pred
-mean_flux_flat = mean_flux_expand.flatten()
-std_flux_flat = std_flux_expand.flatten()
-
-# Denormalize
-y_pred_denorm = y_pred.flatten() * std_flux_flat + mean_flux_flat
-
-
-print("Shapes:", kfkms_z_test.shape, flux_vectors_z_test.shape)
-print("y_true range:", np.min(y_true), np.max(y_true))
-print("y_pred range:", np.min(y_pred), np.max(y_pred))
-print("NaNs?", np.isnan(y_pred).any())
-# --- Compare visually ---
-plt.figure()
-plt.plot(kfkms_z_test[0], y_true[:len(kfkms_z_test[0])], label="True")
-plt.plot(kfkms_z_test[0], y_pred[:len(kfkms_z_test[0])], label="Pred")
-plt.xlabel("k [s/km]")
-plt.ylabel("P₁D(k)")
-plt.title(f"Generalization test: trained on {param_name}, tested on {param_test}")
-plt.legend()
-plt.show()
+i=0
+plt.plot(k_values_low[sort_idx_pred_low], inverse_ratio_low, label="1-(Pred/True) Low", lw=2, color="C"+str(4*i+5))
+plt.plot(k_values_hi[sort_idx_pred_hi], inverse_ratio_hi, label="1-(Pred/True) High", lw=2, color="C"+str(4*i+6))
+"""
