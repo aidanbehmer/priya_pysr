@@ -136,7 +136,7 @@ def plot_predictions(params_low,params_hi,quantiles,X_hi,X_low,y_hi,y_low,model,
         ax1.plot(k_values_hi[sort_idx_pred_hi], flux_pred_hi[sort_idx_pred_hi], label="PySR Prediction (High)", lw=2, linestyle="--", color="C"+str(4*i+2))
 
         ax1.set_ylabel("P1D(k)")
-        ax1.set_title(f"z = {z:.2f}, param ≈ {param_fixed_low:.2f}")
+        ax1.set_title("dtau0 as a function of k for z = 3.6")
         ax1.legend()
         ax1.grid(True)
 

@@ -21,9 +21,9 @@ plt.rcParams["grid.color"] = "#666666"
 ####### Set Input Arguments ########
 # This is where you set the args to your function.
 # Parameter name
-param_name = "bhfeedback"  
+param_name = "dtau0"  
 # take z = 3.6
-z = 2.8
+z = 3.6
 
 # Plotting
 quantile_low = 0.16  # quantile for parameter value to fix
